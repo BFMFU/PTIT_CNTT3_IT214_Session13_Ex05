@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: Report-Service
+
+server:
+  port: 8080
+
+# === CẤU HÌNH INVENTORY-SERVICE (upstream) ===
+inventory:
+  service:
+    base-url: http://localhost:8080  # Mock chạy cùng cổng để demo
+
+# === CẤU HÌNH CIRCUIT BREAKER ===
+resilience4j:
+  circuitbreaker:
+    instances:
+      inventoryCircuitBreaker:
+        # Bật health indicator để hiển thị trên /actuator/health
+        register-health-indicator: true
+        # Kiểu cửa sổ đếm: COUNT_BASED (5 cuộc gọi gần nhất)
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        # Ngưỡng lỗi: ≥ 60% failures → mở circuit
+        failure-rate-threshold: 60
+        # Sau 10s trạng thái OPEN → chuyển sang HALF-OPEN
+        wait-duration-in-open-state: 10s
+        # Số lượng cuộc gọi thử nghiệm ở trạng thái HALF-OPEN
+        permitted-number-of-calls-in-half-open-state: 2
+        # Tự động chuyển từ OPEN → HALF-OPEN sau thời gian chờ
+        automatic-transition-from-open-to-half-open-enabled: true
+        # Buffer size cho event (để hiển thị /actuator/circuitbreakers)
+        event-consumer-buffer-size: 10
+
+# === CẤU HÌNH SPRING ACTUATOR ===
+management:
+  endpoints:
+    web:
+      exposure:
+        # Phơi bày TẤT CẢ endpoint actuator (bao gồm metrics, health, circuitbreakers)
+        include: "*"
+  endpoint:
+    health:
+      # Hiển thị chi tiết health (bao gồm circuit breaker state)
+      show-details: always
+  # Gán tag "application" cho tất cả metrics → dễ filter trên Grafana
+  metrics:
+    tags:
+      application: ${spring.application.name}
