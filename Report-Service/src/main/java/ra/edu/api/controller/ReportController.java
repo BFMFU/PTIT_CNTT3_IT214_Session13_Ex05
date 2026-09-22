@@ -12,15 +12,7 @@ import ra.edu.api.model.Inventory;
 import ra.edu.api.service.InventoryClientService;
 import reactor.core.publisher.Mono;
 
-/**
- * Controller REACTIVE — tất cả phương thức trả về Mono<T>.
- *
- * Khác biệt với MVC Controller:
- *  - MVC:    ResponseEntity<?> checkInventory()       — thread bị chiếm giữ trong khi chờ
- *  - WebFlux: Mono<ResponseEntity<?>> checkInventory() — trả ngay Mono, thread được giải phóng
- *
- * Spring WebFlux sẽ subscribe() vào Mono và gửi response khi dữ liệu sẵn sàng.
- */
+
 @Slf4j
 @RestController
 @RequestMapping("/api/reports")
@@ -30,14 +22,6 @@ public class ReportController {
     private final InventoryClientService inventoryClientService;
     private final CircuitBreaker inventoryCircuitBreaker;
 
-    /**
-     * GET /api/reports/inventory?productId=P001
-     * GET /api/reports/inventory?productId=P001&fail=true  ← kích hoạt lỗi để test CB
-     *
-     * @param productId     Mã sản phẩm cần kiểm tra tồn kho
-     * @param simulateFail  Nếu true → upstream mock trả lỗi 500 (để test Circuit Breaker mở)
-     * @return Mono<ResponseEntity<Inventory>> — non-blocking!
-     */
     @GetMapping("/inventory")
     public Mono<ResponseEntity<Inventory>> checkInventory(
             @RequestParam(defaultValue = "P001") String productId,
@@ -60,10 +44,6 @@ public class ReportController {
                 });
     }
 
-    /**
-     * GET /api/reports/circuit-status
-     * Trả về trạng thái hiện tại của Circuit Breaker (tiện theo dõi khi test).
-     */
     @GetMapping("/circuit-status")
     public Mono<ResponseEntity<String>> getCircuitBreakerStatus() {
         String state = inventoryCircuitBreaker.getState().name();
