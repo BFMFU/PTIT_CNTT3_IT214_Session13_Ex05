@@ -9,29 +9,6 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import ra.edu.api.model.Inventory;
 import reactor.core.publisher.Mono;
 
-/**
- * Service gọi Inventory-Service qua WebClient theo luồng REACTIVE (Non-blocking).
- *
- * ═══════════════════════════════════════════════════════════════════════
- * LUỒNG REACTIVE ĐẦY ĐỦ:
- *
- *  WebClient.get("/api/inventory/check?productId=...")
- *       │
- *       ▼ (Mono<Inventory> — chưa subscribe, chỉ là "công thức")
- *  .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
- *       │
- *       ├── [CB CLOSED] → Cho phép qua → nhận Inventory từ upstream
- *       ├── [CB OPEN]   → Ngắt ngay  → ném CallNotPermittedException
- *       └── [CB HALF-OPEN] → Cho 1 vài request thử nghiệm
- *       │
- *  .onErrorResume(ex -> Mono.just(Inventory.fallback(...)))
- *       │
- *       ▼
- *  Mono<Inventory> — trả về controller
- * ═══════════════════════════════════════════════════════════════════════
- *
- * KHÔNG CÓ .block() nào trong class này!
- */
 @Slf4j
 @Service
 public class InventoryClientService {
@@ -46,14 +23,6 @@ public class InventoryClientService {
         this.circuitBreaker = inventoryCircuitBreaker;
     }
 
-    /**
-     * Kiểm tra tồn kho của một sản phẩm.
-     * Trả về {@link Mono<Inventory>} — hoàn toàn non-blocking.
-     *
-     * @param productId  Mã sản phẩm cần kiểm tra
-     * @param simulateFail  Nếu true → gửi header kích hoạt lỗi trên mock server
-     * @return Mono<Inventory> — live data hoặc fallback nếu CB mở/lỗi
-     */
     public Mono<Inventory> checkInventory(String productId, boolean simulateFail) {
         log.info("[CB State: {}] Calling Inventory-Service for productId={}",
                 circuitBreaker.getState(), productId);
@@ -75,14 +44,6 @@ public class InventoryClientService {
                 )
                 .bodyToMono(Inventory.class)
 
-                // ══════════════════════════════════════════════════════════════
-                // ĐÂY LÀ TRỌNG TÂM CỦA BÀI TẬP:
-                // .transformDeferred() áp dụng operator VÀO TRONG reactive chain.
-                // CircuitBreakerOperator.of(cb) wrap toàn bộ Mono phía trên:
-                //   - Nếu CB CLOSED: cho phép subscribe → gọi upstream thật
-                //   - Nếu CB OPEN:   không subscribe → ném CallNotPermittedException ngay
-                //   - Ghi nhận kết quả (success/error) → cập nhật state CB
-                // ══════════════════════════════════════════════════════════════
                 .transformDeferred(CircuitBreakerOperator.of(circuitBreaker))
 
                 // Xử lý TẤT CẢ lỗi (lỗi upstream + CB mở) → trả fallback
